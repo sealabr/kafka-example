@@ -215,7 +215,59 @@ Quando members entram/saem do group, o Kafka redistribui partitions (**rebalance
 
 Com `KAFKA_AUTO_CREATE_TOPICS_ENABLE: true`, o primeiro produce/consume pode criar o topic. Conveniente no lab; em produção prefere-se **`false`** e criar topics via Admin API / IaC com RF, partições e retenção explícitos.
 
-Neste projeto os módulos Spring também declaram `NewTopic` (ex.: `KafkaTopicConfig` no `banking`).
+Neste projeto os módulos Spring também provisionam os tópicos na subida via `KafkaTopicConfig` (beans `NewTopic` + Spring Kafka Admin). Se o tópico não existir, o Spring cria; se já existir, não recria.
+
+Exemplo (`ride-hailing/config/KafkaTopicConfig.java`):
+
+| Bean | Property (`application.yml`) | Topic |
+|------|------------------------------|-------|
+| `rideRequestedTopic` | `ride-hailing.topics.ride-requested` | `ride.requested` |
+| `driverAssignedTopic` | `ride-hailing.topics.driver-assigned` | `driver.assigned` |
+| `rideCompletedTopic` | `ride-hailing.topics.ride-completed` | `ride.completed` |
+
+Cada bean usa `TopicBuilder.name(topic).partitions(1).replicas(1)`:
+
+- **1 partição** — ordenação total das mensagens no tópico (ok para lab; pouco paralelismo)
+- **1 réplica** — uma cópia apenas (broker único no Docker local; em produção tipicamente RF ≥ 3)
+
+Os nomes vêm do `application.yml` via `@Value`, então dá para renomear sem alterar o Java. O mesmo padrão existe em `banking` e `subscription`.
+
+#### Partitions e replicas em produção
+
+**Réplicas (RF)** definem durabilidade e disponibilidade. **Partições** definem paralelismo (throughput e quantos consumers no mesmo group podem trabalhar ao mesmo tempo).
+
+| Dimensão | Regra prática | Por quê |
+|----------|---------------|---------|
+| **Replication factor** | **3** em cluster com ≥ 3 brokers | Aguenta 1 broker fora sem perder dados; padrão de mercado |
+| **min.insync.replicas** | **2** (com RF=3) | Com `acks=all`, exige pelo menos 2 réplicas sincronizadas antes de confirmar o write |
+| **Partitions** | Começar baixo e **aumentar** conforme carga | Dá para subir o número depois; **não dá para reduzir** sem recriar o topic |
+| **Consumers no group** | ≤ número de partitions | 1 partition = no máximo 1 consumer ativo por group; o resto fica ocioso |
+
+Ordenação: Kafka garante ordem **só dentro da mesma partition**. Para ordenar por entidade (ex.: `rideId`, `accountId`), use essa chave no produce — mensagens da mesma key caem na mesma partition.
+
+**Exemplos por cenário**
+
+| Cenário | Partitions | RF | min ISR | Observação |
+|---------|------------|----|---------|------------|
+| Lab / demo (este repo) | 1 | 1 | 1 | Um broker; simples e suficiente |
+| Staging / time pequeno | 3–6 | 3 | 2 | Espelha produção em escala reduzida |
+| Eventos de negócio com ordem por entidade (ride, transfer) | 6–24 | 3 | 2 | Key = id da entidade; paralelismo sem perder ordem por id |
+| Alto volume / analytics / logs | 24–100+ | 3 | 2 | Mais partitions = mais consumers em paralelo; ordem global não importa |
+| Auditoria / ledger crítico | 3–12 | 3 | 2 | Preferir menos partitions bem chaveadas + `acks=all` |
+| Cluster com 3 brokers | — | **3** | **2** | RF não deve ultrapassar o número de brokers |
+| Cluster com 5+ brokers | — | 3 (às vezes 5) | 2 | RF=5 só se a latência/custo de sync valer a pena |
+
+Exemplo concreto para `ride-hailing` em produção típica (3 brokers):
+
+```java
+TopicBuilder.name(topic)
+    .partitions(12)
+    .replicas(3)
+    .config("min.insync.replicas", "2")
+    .build();
+```
+
+Assim: até 12 consumers no mesmo group processam em paralelo; `rideId` como key mantém a ordem por corrida; RF=3 + min ISR=2 protege contra falha de um broker.
 
 ### CLUSTER_ID
 
