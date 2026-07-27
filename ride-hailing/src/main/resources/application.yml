@@ -1,0 +1,34 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: ride-hailing
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ride-hailing-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.example.ridehailing.event
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        spring.json.add.type.headers: true
+
+ride-hailing:
+  topics:
+    ride-requested: ride.requested
+    driver-assigned: driver.assigned
+    ride-completed: ride.completed
+  # External process APIs (lab: Webhook.site — UI https://webhook.site/#!/9df11f34-48c7-4692-b218-b1dcbf648985)
+  apis:
+    driver-matching:
+      base-url: https://webhook.site/9df11f34-48c7-4692-b218-b1dcbf648985
+    notification:
+      base-url: https://webhook.site/9df11f34-48c7-4692-b218-b1dcbf648985
+    payment:
+      base-url: https://webhook.site/9df11f34-48c7-4692-b218-b1dcbf648985

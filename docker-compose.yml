@@ -1,0 +1,102 @@
+# Kafka KRaft (sem ZooKeeper) para desenvolvimento local.
+# Subir: docker compose up -d
+# Parar: docker compose down
+# Apps Spring Boot conectam em localhost:9092
+#
+# Valores abaixo = LAB (1 nó). Comentários "PRODUÇÃO" indicam o alvo típico.
+services:
+  kafka:
+    # Imagem oficial Apache Kafka 4.x (modo KRaft embutido)
+    # PRODUÇÃO: pin da versão LTS/suportada; upgrade planejado, não latest flutuante
+    image: apache/kafka:4.1.0
+    container_name: kafka-example-broker
+    ports:
+      # Expõe o listener PLAINTEXT do broker para a máquina host
+      # PRODUÇÃO: não publicar 9092 na internet; só rede privada / VPN / mesh
+      - "9092:9092"
+    environment:
+      # Identificador único deste nó no cluster (obrigatório no KRaft)
+      # PRODUÇÃO: único por broker (1, 2, 3...); nunca repetir no mesmo cluster
+      KAFKA_NODE_ID: 1
+
+      # LAB: um processo = broker + controller
+      # PRODUÇÃO: separar papéis — 3+ controllers dedicados (role=controller) e
+      # N brokers (role=broker). Evita misturar carga de clientes com quorum.
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      # Quorum de controllers: "nodeId@host:porta"
+      # LAB: 1@kafka:9093
+      # PRODUÇÃO: ímpar e >= 3, ex.:
+      #   1@controller-1:9093,2@controller-2:9093,3@controller-3:9093
+      # (tolerância a falha = (N-1)/2)
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # Nome do listener usado só pela comunicação de controle (KRaft)
+      # PRODUÇÃO: manter dedicado; não misturar com listener de clients
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # LAB: PLAINTEXT clients + CONTROLLER
+      # PRODUÇÃO: listeners separados, ex.:
+      #   CONTROLLER://0.0.0.0:9093,
+      #   INTERNAL://0.0.0.0:9092 (inter-broker),
+      #   EXTERNAL://0.0.0.0:9094 (apps, com TLS/SASL)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+
+      # LAB: localhost (apps no host)
+      # PRODUÇÃO: hostname DNS estável alcançável pelos clients, ex.:
+      #   INTERNAL://broker-1.kafka.svc:9092,EXTERNAL://kafka.empresa.com:9094
+      # Nunca usar IP efêmero de pod/container sem service discovery
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+
+      # LAB: tudo PLAINTEXT
+      # PRODUÇÃO: SSL ou SASL_SSL nos listeners de client/inter-broker; CONTROLLER
+      # também protegido (SSL). Ex.: CONTROLLER:SSL,INTERNAL:SSL,EXTERNAL:SASL_SSL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+
+      # Listener entre brokers
+      # PRODUÇÃO: usar listener INTERNAL com SSL (não o EXTERNAL público)
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # LAB: 1 (só 1 broker)
+      # PRODUÇÃO: 3 (cluster com >= 3 brokers). Default Apache = 3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+      # LAB: 1
+      # PRODUÇÃO: 3 (mesmo critério do offsets). Default Apache = 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+      # LAB: 1
+      # PRODUÇÃO: 2 (com RF=3). Garante commit só com maioria in-sync.
+      # Default Apache = 2. Nunca deixar = RF em produção (sem tolerância a falha)
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      # LAB: 0 (rebalance imediato)
+      # PRODUÇÃO: 3000 (default Apache). Evita tempestade de rebalances no boot
+      # quando vários consumers sobem juntos
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      # LAB: true (conveniência)
+      # PRODUÇÃO: "false". Tópicos criados só por IaC/Admin API com RF, partições
+      # e políticas explícitas (retensão, compactação, quotas)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      # ID estático do cluster KRaft (base64). Imutável após formatar o storage
+      # PRODUÇÃO: gerar uma vez (kafka-storage.sh random-uuid), guardar em secret/config
+      # e reutilizar em TODOS os nós; nunca regenerar com disco já formatado
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+# -----------------------------------------------------------------------------
+# Resumo PRODUÇÃO (cluster típico >= 3 brokers + 3 controllers)
+# -----------------------------------------------------------------------------
+# KAFKA_PROCESS_ROLES                             controller | broker (separados)
+# KAFKA_CONTROLLER_QUORUM_VOTERS                  3 votantes (ímpar)
+# KAFKA_LISTENERS / ADVERTISED_LISTENERS          INTERNAL + EXTERNAL + CONTROLLER
+# KAFKA_LISTENER_SECURITY_PROTOCOL_MAP            SSL / SASL_SSL (sem PLAINTEXT público)
+# KAFKA_INTER_BROKER_LISTENER_NAME                INTERNAL (SSL)
+# KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR          3
+# KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR  3
+# KAFKA_TRANSACTION_STATE_LOG_MIN_ISR             2
+# KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS          3000
+# KAFKA_AUTO_CREATE_TOPICS_ENABLE                 false
+# Tópicos de negócio                              RF=3, min.insync.replicas=2
+# Disco / monitoring                              volumes persistentes + JMX/alertas

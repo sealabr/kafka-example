@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.springframework.ide.eclipse.boot.launch.BootLaunchConfigurationType">
+    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+        <listEntry value="/subscription/src/main/java/com/example/subscription/SubscriptionApplication.java"/>
+    </listAttribute>
+    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+        <listEntry value="1"/>
+    </listAttribute>
+    <booleanAttribute key="org.eclipse.jdt.launching.ATTR_EXCLUDE_TEST_CODE" value="true"/>
+    <booleanAttribute key="org.springframework.ide.eclipse.boot.launch.AUTO_CONNECT" value="false"/>
+    <booleanAttribute key="org.springframework.ide.eclipse.boot.launch.ENABLE_LIVE_BEAN_SUPPORT" value="true"/>
+    <booleanAttribute key="org.springframework.ide.eclipse.boot.launch.HIDE_FROM_BOOT_DASH" value="false"/>
+    <booleanAttribute key="org.springframework.ide.eclipse.boot.launch.LIVE_BEAN_SUPPORT" value="true"/>
+    <stringAttribute key="org.eclipse.jdt.launching.CLASSPATH_PROVIDER" value="org.springframework.ide.eclipse.boot.launch.BootMavenClassPathProvider"/>
+    <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="com.example.subscription.SubscriptionApplication"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="subscription"/>
+    <stringAttribute key="org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER" value="org.springframework.ide.eclipse.boot.launch.BootMavenSourcePathProvider"/>
+    <stringAttribute key="process_factory_id" value="org.springframework.ide.eclipse.boot.launch.process.BootProcessFactory"/>
+    <stringAttribute key="spring.boot.main.type" value="com.example.subscription.SubscriptionApplication"/>
+    <stringAttribute key="spring.boot.project.name" value="subscription"/>
+</launchConfiguration>
