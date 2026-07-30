@@ -288,6 +288,12 @@ Detalhes dos parâmetros do Compose (lab vs produção) estão comentados em `do
 
 ---
 
+## Outros materiais
+
+- [Top 10 Real-World Kafka Use Cases](docs/kafka-use-cases.md) — casos de uso comuns de Kafka em arquiteturas reais
+
+---
+
 ## How to run
 
 ### Prerequisites
